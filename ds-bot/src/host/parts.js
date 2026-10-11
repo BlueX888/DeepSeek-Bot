@@ -142,7 +142,8 @@ export function install(rt) {
   const STEWARD_TIMEOUT_MS = 120_000
   const STEWARD_LINES = 40
 
-  // A broken provider adapter must not crash every turn; one warning is enough.
+  // A broken provider adapter must not crash every turn; estimate from the
+  // derived messages instead, with one warning.
   let measureWarned = false
   const tokensOf = (session) => {
     try {
@@ -150,8 +151,12 @@ export function install(rt) {
     } catch (error) {
       if (!measureWarned) {
         measureWarned = true
-        rt.warn('ds-bot: token measure failed; context sizes are estimated without it: %s', error)
+        rt.warn('ds-bot: token measure failed; context sizes are estimated: %s', error)
       }
+    }
+    try {
+      return estimateTokens(session.deriveMessages().map(message => textOf(message.content)).join('\n'))
+    } catch {
       return undefined
     }
   }
