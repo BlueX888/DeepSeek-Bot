@@ -706,6 +706,8 @@ const ZH = {
   'Its group conversation could not open': '它的群聊会话打不开',
   // The composer's +
   'Add files': '添加文件',
+  'Reference a chat': '引用对话',
+  'Chat with {name}': '与 {name} 的对话',
   'Scheduled task': '定时任务',
   'Send to': '发给',
   'Scheduled task: {text}': '定时任务：{text}',

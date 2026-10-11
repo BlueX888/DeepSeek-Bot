@@ -746,6 +746,8 @@ var ZH = {
   "Its group conversation could not open": "它的群聊会话打不开",
   // The composer's +
   "Add files": "添加文件",
+  "Reference a chat": "引用对话",
+  "Chat with {name}": "与 {name} 的对话",
   "Scheduled task": "定时任务",
   "Send to": "发给",
   "Scheduled task: {text}": "定时任务：{text}",
@@ -5472,7 +5474,16 @@ function ComposerVoice({ sessionId, inputActions, actions, useUi }) {
     dictation.note ? (0, import_react10.createElement)("span", { className: "bt-mic-note", role: "status" }, dictation.note) : null
   );
 }
-function ComposerPlus({ sessionId, useRoster, actions }) {
+function menuIcons(roster) {
+  const marks = /* @__PURE__ */ new Map();
+  return (row) => {
+    if (!row.bot) return PeopleIcon;
+    const id = row.bot.id;
+    if (!marks.has(id)) marks.set(id, ({ size = 14 }) => (0, import_react10.createElement)(BotMark, { bot: roster.getSnapshot().byId[id] ?? row.bot, size }));
+    return marks.get(id);
+  };
+}
+function ComposerPlus({ sessionId, inputActions, useRoster, actions }) {
   const roster = useRoster((value) => value);
   const [open, setOpen] = (0, import_react10.useState)(null);
   const [shown, leaving] = useLinger(open, 120);
@@ -5514,6 +5525,11 @@ function ComposerPlus({ sessionId, useRoster, actions }) {
     setOpen(null);
     actions.openSettings("schedules", target);
   };
+  const reference = () => {
+    setOpen(null);
+    actions.referenceChat(sessionId, inputActions?.captureInsertion?.());
+  };
+  const canReference = typeof inputActions?.captureInsertion === "function" && actions.canReferenceChat();
   return (0, import_react10.createElement)(
     import_react10.Fragment,
     null,
@@ -5539,9 +5555,98 @@ function ComposerPlus({ sessionId, useRoster, actions }) {
         "data-leaving": leaving || void 0
       },
       (0, import_react10.createElement)("button", { type: "button", role: "menuitem", onClick: attach }, (0, import_react10.createElement)(PaperclipIcon), (0, import_react10.createElement)("span", { className: "bt-menu-label" }, t("Add files"))),
+      canReference ? (0, import_react10.createElement)("button", { type: "button", role: "menuitem", onMouseDown: keepComposerFocus, onClick: reference }, (0, import_react10.createElement)(ChatsIcon), (0, import_react10.createElement)("span", { className: "bt-menu-label" }, t("Reference a chat"))) : null,
       (0, import_react10.createElement)("button", { type: "button", role: "menuitem", onClick: schedule }, (0, import_react10.createElement)(ClockIcon), (0, import_react10.createElement)("span", { className: "bt-menu-label" }, t("Scheduled task")))
     ), document.body) : null
   );
+}
+
+// src/client/at-menu.js
+var BOTS_SOURCE = "ds-bot";
+var CHATS_SOURCE = "ds-bot-chats";
+var ROOM_ALL = ["all", "everyone", "所有人", "全体"];
+var OTHER_CHATS_MAX = 8;
+var conversationOf = (roster, sessionId) => {
+  if (!roster.ready) return null;
+  const room2 = roster.roomsById[sessionId];
+  if (room2) return { room: room2 };
+  const self2 = roster.byId[sessionId];
+  return self2 ? { self: self2 } : null;
+};
+function mentionRows(roster, sessionId, query = "") {
+  const here = conversationOf(roster, sessionId);
+  if (here === null) return null;
+  const bots = here.room ? here.room.members.map((id) => roster.byId[id]).filter(Boolean) : roster.bots.filter((bot) => bot.id !== here.self.id);
+  const needle = query.trim().toLowerCase();
+  const rows = bots.filter((bot) => bot.name.toLowerCase().includes(needle)).map((bot) => ({ bot, text: `@${bot.name} ` }));
+  const everyone = t("Everyone");
+  if (here.room && bots.length > 1 && [everyone, ...ROOM_ALL].some((word) => word.toLowerCase().startsWith(needle))) {
+    rows.push({ room: here.room, text: `@${everyone} ` });
+  }
+  return rows;
+}
+function chatRows(roster, list, sessionId) {
+  const here = conversationOf(roster, sessionId);
+  if (here === null) return [];
+  const byId = list?.byId ?? {};
+  const bots = roster.bots.filter((bot) => bot.id !== here.self?.id).map((bot) => {
+    const id = currentPart(bot);
+    return { sessionId: id, label: t("Chat with {name}", { name: bot.name }), bot, updatedAt: byId[id]?.updatedAt };
+  });
+  const team = /* @__PURE__ */ new Set([
+    ...roster.bots.flatMap((bot) => [bot.id, currentPart(bot), ...bot.parts ?? []]),
+    ...roster.rooms.flatMap((room2) => [room2.id, ...room2.parts ?? []])
+  ]);
+  const others = (list?.ids ?? []).map((id) => byId[id]).filter((row) => row !== void 0 && row.id !== sessionId && !team.has(row.id) && row.origin !== "subagent" && row.blank !== true).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).slice(0, OTHER_CHATS_MAX).map((row) => ({ sessionId: row.id, label: row.displayTitle || row.title || row.id, updatedAt: row.updatedAt }));
+  return [...bots, ...others];
+}
+function sessionMention(sessionId, label) {
+  let binary = "";
+  for (const byte of new TextEncoder().encode(JSON.stringify(sessionId))) binary += String.fromCharCode(byte);
+  const payload = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `@[${label.replace(/[\\\]]/g, (mark) => `\\${mark}`)}](dsh-session:${payload})`;
+}
+function atSources({ roster, sessions, launched, iconFor }) {
+  const bots = {
+    trigger: "@",
+    name: BOTS_SOURCE,
+    order: -20,
+    showGroupTitle: false,
+    async candidates(session, { query }) {
+      return (mentionRows(roster.getSnapshot(), session.sessionId, query) ?? []).map((row) => ({
+        name: row.bot ? row.bot.name : t("Everyone"),
+        ...row.bot?.role ? { description: row.bot.role } : {},
+        ...row.room ? { description: t("{count} members", { count: row.room.members.length }) } : {},
+        icon: iconFor(row),
+        section: t("Bots"),
+        value: row.text
+      }));
+    },
+    onPick: ({ candidate }) => candidate.value ? { text: candidate.value } : void 0
+  };
+  const chats = {
+    trigger: "@",
+    name: CHATS_SOURCE,
+    order: -10,
+    showGroupTitle: false,
+    async candidates(session) {
+      if (!launched(session.sessionId)) return [];
+      return chatRows(roster.getSnapshot(), sessions.list.getSnapshot(), session.sessionId).map((row) => ({
+        name: row.bot ? row.bot.name : row.label,
+        ...row.updatedAt ? { description: relativeShort(row.updatedAt) } : {},
+        icon: row.bot ? iconFor(row) : "session",
+        section: row.bot ? t("Bots") : t("Conversations"),
+        value: JSON.stringify({ sessionId: row.sessionId, label: row.label })
+      }));
+    },
+    onPick({ candidate }) {
+      const { sessionId, label } = JSON.parse(candidate.value);
+      const mention = sessionMention(sessionId, label);
+      return { insert: { source: CHATS_SOURCE, ref: mention, label, appearance: "session", clipboardText: mention } };
+    },
+    codec: { clipboardText: (ref) => ref, serialize: (ref) => Promise.resolve(ref) }
+  };
+  return [bots, chats];
 }
 
 // src/client/speech.js
@@ -12679,6 +12784,32 @@ function apply(ctx) {
     } };
   };
   const shadow = (name, options, component) => ctx.slots.inject(name, () => ctx.slots.register({ name, ...options }, component));
+  let atMenu = null;
+  const installAtMenu = () => {
+    const fiber = ctx.inject(["inputTriggers"], (scope) => {
+      scope.effect(() => {
+        const triggers = scope.inputTriggers;
+        const controllerOf = (sessionId) => {
+          const binding = ctx.sessions.binding(sessionId);
+          return binding === void 0 ? void 0 : triggers.sessionOf(binding.ctx);
+        };
+        const launched = (sessionId) => controllerOf(sessionId)?.launcher.getSnapshot() === CHATS_SOURCE;
+        const offs = atSources({ roster, sessions: ctx.sessions, launched, iconFor: menuIcons(roster) }).map((source) => triggers.registerSource(source));
+        atMenu = { controllerOf };
+        return () => {
+          atMenu = null;
+          for (const off of offs) off();
+        };
+      }, "ds-bot: @ menu");
+    });
+    return () => fiber.dispose();
+  };
+  actions.canReferenceChat = () => atMenu !== null;
+  actions.referenceChat = (sessionId, span) => {
+    const controller = atMenu?.controllerOf(sessionId);
+    if (controller === void 0 || span === void 0) return;
+    controller.toggleSource(CHATS_SOURCE, { trigger: "@", query: "", quoted: false, position: "inline", span });
+  };
   const installShell = () => [
     installCompiledStyles(SHELL_CSS, "shell"),
     installCompiledStyles(SIDEBAR_CSS, "sidebar"),
@@ -12709,6 +12840,7 @@ function apply(ctx) {
     installCompiledStyles(CONVERSATION_CSS, "conversation"),
     installBubbleTokens(),
     installMentions(),
+    installAtMenu(),
     // Bot conversations are always flat, so the work-details mode is not a choice:
     // the mode is held at `verbose` while this group is mounted.
     holdFlatTranscript(ctx.configForms.get("ui-chat")),

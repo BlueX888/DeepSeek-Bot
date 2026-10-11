@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { isPass, mentionsIn, stripOwnName } from '../src/host/groups.js'
+import { isPass, mentionsIn, referenceNote, stripOwnName, withoutReferences } from '../src/host/groups.js'
+import { attachReference } from '../src/host/turns.js'
 
 const members = [{ name: 'M' }, { name: 'Mx' }, { name: 'K' }, { name: 'Writer' }]
 const names = ({ all, found }) => ({ all, found: found.map(member => member.name) })
@@ -26,4 +27,23 @@ test('stripOwnName drops an echoed "Name:" prefix', () => {
   assert.equal(stripOwnName('A.b', 'A.b: x'), 'x')
   assert.equal(stripOwnName('A.b', 'Axb: x'), 'Axb: x')
   assert.equal(stripOwnName('Writer', 'Coder: hi'), 'Coder: hi')
+})
+
+test('a referenced conversation rides with the user\'s queued message, not a Bot\'s post', () => {
+  const queued = [{ text: 'first' }, { text: 'look @Chat with K', images: [] }, { text: 'post', botId: 'k' }]
+  attachReference(queued, { kind: 'session-reference', references: [{ label: 'Chat with K' }, { label: '' }] }, '## Referenced sessions\n…')
+  attachReference(queued, { kind: 'session-reference', references: [{ label: 'K notes' }] }, '## Referenced sessions\n2')
+  attachReference(queued, { kind: 'session-reference' }, '')
+  assert.equal(queued[0].references, undefined)
+  assert.deepEqual(queued[1].references, [{ labels: ['Chat with K'], text: '## Referenced sessions\n…' }, { labels: ['K notes'], text: '## Referenced sessions\n2' }])
+  assert.equal(queued[2].references, undefined)
+  attachReference(undefined, {}, 'x')
+})
+
+test('a reference label is not a call, even when it starts with a member\'s name', () => {
+  const references = [{ labels: ['K notes', 'K'] }]
+  assert.deepEqual(names(mentionsIn(withoutReferences('see @K notes, then @Writer', references), members)), { all: false, found: ['Writer'] })
+  assert.deepEqual(names(mentionsIn(withoutReferences('@K notes', undefined), members)), { all: false, found: ['K'] })
+  assert.equal(referenceNote([]), '')
+  assert.equal(referenceNote([{ text: 'A' }, { text: 'B' }]), 'Conversations the user referenced in this round:\n\nA\n\nB')
 })

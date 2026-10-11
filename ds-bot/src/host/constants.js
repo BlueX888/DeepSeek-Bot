@@ -26,6 +26,9 @@ export const ROOM_REPLY_TIMEOUT_MS = 240_000
 export const SOURCE_KIND = 'bot'
 // An answer from a question card, in the shape DSH's own late question replies use.
 export const REPLY_KIND = 'user-question-reply'
+// DSH's snapshot of a referenced conversation, logged right after the user's message
+// that cites it.
+export const REFERENCE_KIND = 'session-reference'
 // `everyone`: every member answers a plain message in turn, admin first. `admin`: a
 // plain message goes to the admin, who calls others with @mentions. New groups start
 // in `admin` mode, because every extra speaker re-reads its whole context; a group

@@ -8,7 +8,8 @@ import { SHELL_CSS, CONVERSATION_CSS, installStyles, installCompiledStyles } fro
 import { lookOf } from './mark.js'
 import { TeamSidebar, ConnectPlugins, YouAvatar, AccountLauncher, FooterAccount, BrandMark, BrandName, BotReturn, SIDEBAR_CSS, RETURN_CSS, holdShellShortcuts } from './sidebar.js'
 import { HeaderPill } from './header.js'
-import { ComposerPlus, ComposerVoice } from './composer.js'
+import { ComposerPlus, ComposerVoice, menuIcons } from './composer.js'
+import { CHATS_SOURCE, atSources } from './at-menu.js'
 import { VOICE_BUNDLE } from './speech.js'
 import { sameVersion } from './dsh-offer.js'
 import { AnsweredCell, QuestionCard, QuestionDock } from './questions.js'
@@ -694,6 +695,35 @@ export function apply(ctx) {
 
   const shadow = (name, options, component) => ctx.slots.inject(name, () => ctx.slots.register({ name, ...options }, component))
 
+  // The "@" menu's Bot group and the chats "+" references. The composer's controller
+  // for a Session is the shell's own, so the chats open at its caret.
+  let atMenu = null
+  const installAtMenu = () => {
+    const fiber = ctx.inject(['inputTriggers'], (scope) => {
+      scope.effect(() => {
+        const triggers = scope.inputTriggers
+        const controllerOf = (sessionId) => {
+          const binding = ctx.sessions.binding(sessionId)
+          return binding === undefined ? undefined : triggers.sessionOf(binding.ctx)
+        }
+        const launched = sessionId => controllerOf(sessionId)?.launcher.getSnapshot() === CHATS_SOURCE
+        const offs = atSources({ roster, sessions: ctx.sessions, launched, iconFor: menuIcons(roster) }).map(source => triggers.registerSource(source))
+        atMenu = { controllerOf }
+        return () => {
+          atMenu = null
+          for (const off of offs) off()
+        }
+      }, 'ds-bot: @ menu')
+    })
+    return () => fiber.dispose()
+  }
+  actions.canReferenceChat = () => atMenu !== null
+  actions.referenceChat = (sessionId, span) => {
+    const controller = atMenu?.controllerOf(sessionId)
+    if (controller === undefined || span === undefined) return
+    controller.toggleSource(CHATS_SOURCE, { trigger: '@', query: '', quoted: false, position: 'inline', span })
+  }
+
   // The shell group paints the team surface around the session; the conversation
   // group re-skins the session itself. Every disposer comes from slots.inject, so a
   // surface change withdraws the whole group and the outlets re-render.
@@ -727,6 +757,7 @@ export function apply(ctx) {
     installCompiledStyles(CONVERSATION_CSS, 'conversation'),
     installBubbleTokens(),
     installMentions(),
+    installAtMenu(),
     // Bot conversations are always flat, so the work-details mode is not a choice:
     // the mode is held at `verbose` while this group is mounted.
     holdFlatTranscript(ctx.configForms.get('ui-chat')),

@@ -10,7 +10,7 @@ Tested with dsh `0.2.1-alpha.1` (Web and Desktop) on Linux.
 
 - **Long-lived Bots**: each Bot is a dsh Session in the "DS Bot" workspace, with its own name, role, instructions and model.
 - **Bots work together**: `message_bot` sends a message to another Bot, `create_bot` and `update_bot` add and set up Bots, and `ask_user` asks you a question without blocking the other Bots.
-- **Group chats**: members speak one at a time, and each one reads the latest messages first. A message can `@Name` a member to pass the turn on. A member with nothing new to add stays quiet (`[PASS]`). Each member has its own hidden Session per group, so a group never reads a Bot's private chat.
+- **Group chats**: members speak one at a time, and each one reads the latest messages first. A message can `@Name` a member to pass the turn on; type `@` to pick one from a list. **+ → Reference a chat** adds another Bot's chat to a message as context, and in a group the members who answer get it. A member with nothing new to add stays quiet (`[PASS]`). Each member has its own hidden Session per group, so a group never reads a Bot's private chat.
 - **Roles and permissions**:
 
   | Who | Can do |

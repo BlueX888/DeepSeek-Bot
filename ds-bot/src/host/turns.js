@@ -2,7 +2,7 @@
 // triggered, the waiters and inboxes of group rounds, and routing a finished turn's reply.
 //
 // Turn tracking: which turns were triggered by another Bot, and what they said.
-import { REPLY_KIND, SOURCE_KIND } from './constants.js'
+import { REFERENCE_KIND, REPLY_KIND, SOURCE_KIND } from './constants.js'
 import { textOf } from './text.js'
 import { reminderText } from './schedules.js'
 
@@ -21,6 +21,16 @@ export function turnFailure(error) {
 
 export const failureLine = failure => `${failure.code}${failure.status ? ` ${failure.status}` : ''}${failure.message ? `: ${failure.message.slice(0, 200)}` : ''}`
 
+// A group's own Session never reaches a model, so the snapshot DSH prepared there
+// rides with the user's queued message to the members who answer it.
+export function attachReference(queued, source, text) {
+  const post = queued?.findLast(item => item.botId === undefined && item.kickoff !== true)
+  if (post === undefined || text === '') return
+  const labels = (Array.isArray(source?.references) ? source.references : [])
+    .map(reference => reference?.label).filter(label => typeof label === 'string' && label !== '')
+  post.references = [...(post.references ?? []), { labels, text }]
+}
+
 export function install(rt) {
   const { ctx, state } = rt
 
@@ -30,7 +40,7 @@ export function install(rt) {
   const roomWaiters = new Map()
   /** @type {Map<string, {roomId:string, replies:any[], members:string[], speaking:string|null}>} */
   const roomProgress = new Map()
-  /** @type {Map<string, {text:string, botId?:string, name?:string, reportBack?:boolean, hop?:number, kickoff?:boolean}[]>} messages a room's next relay posts */
+  /** @type {Map<string, {text:string, botId?:string, name?:string, reportBack?:boolean, hop?:number, kickoff?:boolean, references?:{labels:string[], text:string}[]}[]>} messages a room's next relay posts */
   const roomInbox = new Map()
   const queueRoomMessage = (roomId, item) => roomInbox.set(roomId, [...(roomInbox.get(roomId) ?? []), item])
 
@@ -180,6 +190,8 @@ export function install(rt) {
         } else if (source?.kind === 'schedule' && rt.roomOf(id)) {
           // A group's scheduled task reaches the group as the user's message.
           queueRoomMessage(id, { text: reminderText(textOf(event.data.content)) })
+        } else if (source?.kind === REFERENCE_KIND && rt.roomOf(id)) {
+          attachReference(roomInbox.get(id), source, textOf(event.data.content))
         } else if (source?.kind === 'user' || source?.kind === REPLY_KIND) {
           if (rt.roomOf(id) && source.kind === 'user') {
             const images = (Array.isArray(event.data.content) ? event.data.content : [])
