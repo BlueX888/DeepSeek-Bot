@@ -71,7 +71,7 @@ export function install(rt) {
   const live = () => ({ activity: rt.activityView(), memoryNews: rt.memoryNews(), memoryReviews: rt.memoryReviews(), connectors: rt.connectorsView() })
   // What a host that only reads the team may still answer.
   // Updates change the dsh profile, not the team, so a reading host may run them too.
-  const READS = new Set(['state', 'models', 'efforts', 'earlier', 'room-progress', 'exchange', 'usage', 'schedules', 'memory-view', 'browser-wait', 'browser-result', 'diagnostics', 'diagnostics-log', 'diagnostics-clear', 'update-check', 'update-install', 'dsh-update-install'])
+  const READS = new Set(['state', 'models', 'efforts', 'earlier', 'room-progress', 'exchange', 'usage', 'schedules', 'memory-view', 'browser-wait', 'browser-result', 'diagnostics', 'diagnostics-log', 'diagnostics-clear', 'update-check', 'update-install', 'dsh-update-install', 'repo-stars'])
 
   function setPrefs(body) {
     if (body.theme !== undefined) {
@@ -270,6 +270,8 @@ export function install(rt) {
           return ok(rt.updateStart())
         case 'dsh-update-install':
           return ok(rt.dshUpdateStart?.())
+        case 'repo-stars':
+          return ok(await rt.repoStars())
         // The Desktop window's long poll for read_browser, and its answers.
         case 'browser-wait': {
           if (rt.browserChannel === undefined) return fail('Bot browsers are off on this host', 'bot/browser-off')

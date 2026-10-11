@@ -25,7 +25,7 @@ DeepSeek Bot（简称 DS Bot）是一个基于 [DeepSeek Harness](https://github
 2. **包名或地址** 填 `ds-bot`。在中国大陆，**安装源** 选 **中国大陆镜像源**。
 3. 点 **安装**，再点 **立即启用**。如果提示“下次启动生效”，完全退出 dsh 再打开。
 
-连不上 npm 时，第 2 步也可以填 [Releases](https://github.com/FeiZhuLulu/DeepSeek-Bot/releases) 里下载的 `ds-bot-0.1.1.tgz` 的完整路径，或者 `github:FeiZhuLulu/DeepSeek-Bot#v0.1.1&path:/ds-bot`（需要装 Git）。
+连不上 npm 时，第 2 步也可以填 [Releases](https://github.com/FeiZhuLulu/DeepSeek-Bot/releases) 里下载的 `ds-bot-0.1.2.tgz` 的完整路径，或者 `github:FeiZhuLulu/DeepSeek-Bot#v0.1.2&path:/ds-bot`（需要装 Git）。
 
 **dsh Web（Windows、macOS、Linux）**
 

@@ -1,9 +1,11 @@
-// DSH updates: every released DS Bot names the DSH release it was verified
-// against (`dsBot.verifiedDsh` in package.json). The newest released bot wins:
-// offering that version and nothing newer keeps the update path away from DSH
-// releases we have not checked. A DSH installed from npm swaps with
-// `npm i -g`; a packaged app's runtime lives inside its bundle, so the card
-// there only reports current and verified — its own updater chooses versions.
+// DSH updates: a released DS Bot may name the DSH release it was verified
+// against (`dsBot.verifiedDsh` in package.json); a release that names none
+// offers nothing. The newest released bot wins: offering that version and
+// nothing newer keeps the update path away from DSH releases we have not
+// checked. A DSH installed from npm swaps with `npm i -g`; a packaged app's
+// runtime lives inside its bundle and only its own updater moves it, to the
+// newest release it finds, so the client offers it only when that release is
+// the verified one.
 import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'

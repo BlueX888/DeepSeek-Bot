@@ -25,7 +25,7 @@ First install DSH and set up at least one model in it. DS Bot uses the models fr
 2. In **Package name or address**, enter `ds-bot`. In mainland China, set **Registry** to **Mainland China mirror**.
 3. Select **Install**, then **Enable now**. If DSH says the change takes effect at the next start, quit DSH completely and open it again.
 
-If npm is not reachable, in step 2 you can also enter the full path of `ds-bot-0.1.1.tgz` downloaded from [Releases](https://github.com/FeiZhuLulu/DeepSeek-Bot/releases), or `github:FeiZhuLulu/DeepSeek-Bot#v0.1.1&path:/ds-bot` (needs Git).
+If npm is not reachable, in step 2 you can also enter the full path of `ds-bot-0.1.2.tgz` downloaded from [Releases](https://github.com/FeiZhuLulu/DeepSeek-Bot/releases), or `github:FeiZhuLulu/DeepSeek-Bot#v0.1.2&path:/ds-bot` (needs Git).
 
 **DSH Web (Windows, macOS, Linux)**
 

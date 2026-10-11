@@ -10,6 +10,7 @@ import { TeamSidebar, ConnectPlugins, YouAvatar, AccountLauncher, FooterAccount,
 import { HeaderPill } from './header.js'
 import { ComposerPlus, ComposerVoice } from './composer.js'
 import { VOICE_BUNDLE } from './speech.js'
+import { sameVersion } from './dsh-offer.js'
 import { AnsweredCell, QuestionCard, QuestionDock } from './questions.js'
 import { AssistantCell, TriggerCell, TurnProcessCell, Nothing, TurnTailCell, ToolCell } from './cells.js'
 import { Overlays } from './overlays.js'
@@ -27,6 +28,7 @@ import { groupsFor, readMode, writeMode } from './surface.js'
 import { installLocale, language } from './i18n.js'
 import { noteClientError, quietly } from './diagnostics.js'
 import { ErrorToast, FEEDBACK_CSS } from './feedback.js'
+import { ABOUT_CSS } from './about.js'
 
 export const inject = ['sessions', 'uiWorkspace', 'uiConversation', 'slots', 'theme', 'layout', 'configForms']
 
@@ -181,13 +183,26 @@ export function apply(ctx) {
       if (stopped) return
       const value = await call('update-check', { fresh: false }).catch(() => null)
       if (stopped) return
-      if (value) update.set(value)
+      if (value) update.set(previous => ({ ...value, app: previous.app }))
       timer = setTimeout(loop, value?.phase === 'installing' || value?.dsh?.phase === 'installing' ? 2000 : 60 * 60_000)
     }
     wakeUpdate = loop
     void loop()
     return () => { stopped = true; clearTimeout(timer); wakeUpdate = () => {} }
   }, 'ds-bot: update check')
+
+  // A packaged DSH updates through its own updater; what that updater found is
+  // kept beside the host's answer so the card can match it to the verified DSH.
+  const appUpdates = window.dshDesktop?.protocolVersion === 1 ? window.dshDesktop.updates ?? null : null
+  if (appUpdates?.status && appUpdates.subscribe) {
+    ctx.effect(() => {
+      let stopped = false
+      const take = (app) => { if (!stopped && app) update.set(previous => ({ ...previous, app })) }
+      void appUpdates.status().then(take, () => {})
+      const unsubscribe = appUpdates.subscribe(take)
+      return () => { stopped = true; unsubscribe?.() }
+    }, 'ds-bot: app update status')
+  }
 
   // Bot browsers need the Desktop shell's webview bridge, and the host serves
   // read_browser only in the Desktop profile (`browser` in the state).
@@ -611,8 +626,19 @@ export function apply(ctx) {
     update.set(previous => ({ ...previous, dsh }))
     wakeUpdate()
   }
-  // A packaged DSH only updates inside its app; the button opens the app's panel.
-  actions.openAppUpdates = () => window.dshDesktop?.updates?.open?.()
+  // The app's panel installs whatever its updater found by now, so it opens only
+  // while that is still the verified version.
+  actions.openAppUpdates = async (verified) => {
+    const app = await appUpdates?.status?.()
+    if (app) update.set(previous => ({ ...previous, app }))
+    if (sameVersion(app?.version, verified)) await appUpdates.open()
+  }
+  actions.checkUpdate = async () => {
+    const value = await call('update-check', { fresh: true })
+    update.set(previous => ({ ...value, app: previous.app }))
+    wakeUpdate()
+  }
+  actions.repoStars = () => call('repo-stars')
   actions.noteTurnTime = (sessionId, turn, key, time) => {
     if (sessionId === undefined || !Number.isFinite(turn) || !Number.isFinite(time)) return
     turnClock.set((state) => {
@@ -679,6 +705,7 @@ export function apply(ctx) {
     installCompiledStyles(USAGE_CSS, 'usage'),
     installCompiledStyles(SCHEDULE_CSS, 'schedules'),
     installCompiledStyles(FEEDBACK_CSS, 'feedback'),
+    installCompiledStyles(ABOUT_CSS, 'about'),
     browsers ? installCompiledStyles(BROWSER_CSS, 'browser') : null,
     installTheme(),
     shadow('sidebar.workspaces', { priority: -10, inject: face }, TeamSidebar),

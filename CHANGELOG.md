@@ -4,6 +4,16 @@ All notable changes to DS Bot are listed here. The format follows [Keep a Change
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-11
+
+### Added
+
+- Settings → About DS Bot: the DS Bot and DSH versions, **Check for updates** and the update buttons, and links to the source code, the release notes and the feedback page. A **Star** button opens the GitHub repository and shows its star count.
+
+### Fixed
+
+- The update card offers a DSH update only when a DS Bot release names a verified DSH version. DS Bot 0.1.1 offered DSH `0.2.1-alpha.1`, which was not verified. In DSH Desktop the card shows a DSH update only when the update the app offers is the verified version.
+
 ## [0.1.1] - 2026-10-11
 
 Tested with DeepSeek Harness `0.2.1-alpha.1` (DSH Desktop and DSH Web).
@@ -62,6 +72,7 @@ If you used the legacy `dsh-bot` package, remove it before you install `ds-bot`.
 - Only one DSH can change a team at a time; a second DSH on the same DSH home opens it read-only ([Data and backups](ds-bot/README.md#data-and-backups)).
 - Group chats use many tokens: each member reads the group and answers in turn.
 
-[Unreleased]: https://github.com/FeiZhuLulu/DeepSeek-Bot/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/FeiZhuLulu/DeepSeek-Bot/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/FeiZhuLulu/DeepSeek-Bot/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/FeiZhuLulu/DeepSeek-Bot/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/FeiZhuLulu/DeepSeek-Bot/releases/tag/v0.1.0

@@ -129,6 +129,19 @@ test('a linked checkout, an unversioned git install, or a disabled check never a
   assert.deepEqual(fetched, [])
 })
 
+test('the star count comes from the repository, is kept for an hour, and survives a failed answer', async () => {
+  const repo = 'https://api.github.com/repos/FeiZhuLulu/DeepSeek-Bot'
+  const answers = { [repo]: new Error('offline') }
+  const { rt, fetched } = start({ source: `${PKG.name}@^${PKG.version}`, answers })
+  assert.equal(rt.updateView().repoUrl, 'https://github.com/FeiZhuLulu/DeepSeek-Bot')
+  assert.equal(await rt.repoStars(), null)
+  answers[repo] = { stargazers_count: 42 }
+  assert.equal(await rt.repoStars(), 42)
+  answers[repo] = new Error('offline')
+  assert.equal(await rt.repoStars(), 42)
+  assert.deepEqual(fetched, [repo, repo])
+})
+
 test('without a source from the plugin manager, the profile\'s own dependency entry decides', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'ds-bot-update-'))
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { [PKG.name]: `^${PKG.version}` } }))

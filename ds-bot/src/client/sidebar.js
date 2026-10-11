@@ -9,6 +9,7 @@ import { botState, BotMark, BotAvatar, RoomAvatar } from './mark.js'
 import { reducedMotion } from './activity-row.js'
 import { springEasing, SPRING_SHAPE } from './motion.js'
 import { hostText, t } from './i18n.js'
+import { showsDshRow } from './dsh-offer.js'
 
 // -------------------------------------------------------------------------
 // Sidebar
@@ -285,9 +286,7 @@ function UpdateButton({ useUpdate, actions }) {
   const phase = update?.phase ?? 'idle'
   const dsh = update?.dsh
   const dshPhase = dsh?.phase ?? 'idle'
-  // The DSH row shows while its verified version differs from what is running —
-  // offered, gated on a newer bot first, or owned by the app's own updater.
-  const dshRow = dsh && dsh.verified && dsh.current && dsh.verified !== dsh.current
+  const dshRow = showsDshRow(dsh, update?.app)
   if (!update?.available && !dshRow && phase === 'idle' && dshPhase === 'idle') return null
   const cloudPhase = phase === 'installing' || dshPhase === 'installing' ? 'installing' : phase !== 'idle' ? phase : dshPhase
   const toggle = () => {
@@ -313,7 +312,7 @@ function UpdateButton({ useUpdate, actions }) {
   const dshMessage = dshError || (dshPhase === 'failed' ? dsh?.error : '')
   const dshText = dshPhase === 'installed'
     ? t('Restart DSH to start using DSH {version}.', { version: dsh.installed ?? dsh.verified })
-    : dsh?.available === false && dsh?.blockedBy && dsh.kind === 'npm'
+    : dsh?.available === false && dsh?.blockedBy
       ? t('Update DS Bot {version} first.', { version: dsh.blockedBy })
       : t('You have {version}.', { version: dsh?.current })
   return h(Fragment, null,
@@ -338,7 +337,9 @@ function UpdateButton({ useUpdate, actions }) {
         h('div', { className: 'bt-update-text' }, dshText),
         dshMessage ? h('div', { className: 'bt-update-error', role: 'alert' }, t('The update did not finish: {reason}', { reason: dshMessage })) : null,
         h('div', { className: 'bt-update-actions' },
-          dsh.kind === 'app' ? h('button', { type: 'button', className: 'bt-update-go', onClick: () => actions.openAppUpdates() }, t('Open updates'))
+          dsh.kind === 'app' ? (dsh.available
+            ? h('button', { type: 'button', className: 'bt-update-go', onClick: () => void actions.openAppUpdates(dsh.verified).catch(() => {}) }, t('Open updates'))
+            : null)
             : !dsh.available && dshPhase === 'idle' ? null
               : dshPhase === 'installed' ? null
                 : h('button', {
@@ -609,7 +610,7 @@ export const SIDEBAR_CSS = `
 .bt-update-go:hover:not(:disabled){opacity:.9}
 .bt-update-go:active:not(:disabled){transform:scale(.96)}
 .bt-update-go:disabled{opacity:.6;cursor:default}
-.bt-update-dsh{margin-top:12px;padding-top:12px;border-top:.5px solid var(--bt-line-2)}
+.bt-update-dsh:not(:first-child){margin-top:12px;padding-top:12px;border-top:.5px solid var(--bt-line-2)}
 @media (prefers-reduced-motion:reduce){.bt-round.bt-update,.bt-update-pop,.bt-update .bt-cloud-arrow{animation:none}}
 
 /* The DSH Agent row and its expanding Session list. The black whale is the

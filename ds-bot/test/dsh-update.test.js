@@ -5,14 +5,13 @@ import { afterEach, test } from 'node:test'
 import { install } from '../src/host/dsh-update.js'
 
 const PKG = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-const VERIFIED = PKG.dsBot.verifiedDsh
 const flush = async () => { for (let index = 0; index < 8; index += 1) await Promise.resolve() }
 const realFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = realFetch })
 
 // The dsh-update module alone: a stub loader says the running DSH version, a
 // stub plugin manager says how the bot was installed, and fetch is scripted.
-function start({ current = '0.2.0-rc.2', source, answers = {}, app = false, spawn, config = {}, profileDir }) {
+function start({ current = '0.1.0', source, answers = {}, app = false, spawn, config = {}, profileDir }) {
   const fetched = []
   const spawns = []
   const warnings = []
@@ -59,7 +58,7 @@ const githubLatest = (tag, manifest) => ({
 test('the newest released bot declares the verified DSH, offered to an older npm install', async () => {
   const { rt, spawns } = start({ source: `${PKG.name}@^${PKG.version}`, answers: registryLatest({ verifiedDsh: '9.9.9' }) })
   const view = await rt.dshUpdateCheck()
-  assert.equal(view.current, '0.2.0-rc.2')
+  assert.equal(view.current, '0.1.0')
   assert.equal(view.verified, '9.9.9')
   assert.equal(view.kind, 'npm')
   assert.equal(view.available, true)
@@ -77,15 +76,15 @@ test('a verified version older than the running one is still offered, for a brok
   assert.equal(view.available, true)
 })
 
-test('without a newer released declaration the installed package\'s own stands as the floor', async () => {
+test('without any verified version nothing is offered', async () => {
   const { rt } = start({ source: `${PKG.name}@^${PKG.version}` })
   const view = await rt.dshUpdateCheck()
-  assert.equal(view.verified, VERIFIED)
-  assert.equal(view.available, true)
+  assert.equal(view.verified, null)
+  assert.equal(view.available, false)
 })
 
 test('the running version matching the verified one offers nothing', async () => {
-  const { rt } = start({ current: VERIFIED, source: `${PKG.name}@^${PKG.version}` })
+  const { rt } = start({ source: `${PKG.name}@^${PKG.version}`, answers: registryLatest({ verifiedDsh: '0.1.0' }) })
   assert.equal((await rt.dshUpdateCheck()).available, false)
   assert.throws(() => rt.dshUpdateStart(), /No DSH update/)
 })

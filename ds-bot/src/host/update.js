@@ -99,10 +99,16 @@ export async function installSpecOf(ctx) {
 export const repoSlug = () =>
   /github\.com[/:]([\w.-]+\/[\w.-]+?)(?:\.git)?$/i.exec(String(PKG.repository?.url ?? PKG.repository ?? ''))?.[1] ?? null
 
-const releasesUrl = () => {
+const repoUrl = () => {
   const repo = repoSlug()
-  return repo ? `https://github.com/${repo}/releases` : (PKG.homepage ?? null)
+  return repo ? `https://github.com/${repo}` : null
 }
+const releasesUrl = () => {
+  const repo = repoUrl()
+  return repo ? `${repo}/releases` : (PKG.homepage ?? null)
+}
+
+export const STARS_TTL_MS = 60 * 60_000
 
 export function install(rt) {
   const { ctx, config } = rt
@@ -119,9 +125,26 @@ export function install(rt) {
 
   const view = () => ({
     name: status.name, current: status.current, latest: status.latest, source: status.source, notesUrl: status.notesUrl,
+    repoUrl: repoUrl(), enabled,
     checkedAt: status.checkedAt, phase: status.phase, installed: status.installed, error: status.error,
     available: status.phase !== 'installed' && target !== null && status.latest !== null && newer(status.latest, status.current),
   })
+
+  // Asked only while the About page is open, so a closed page never calls GitHub.
+  // A failed answer keeps the last count and is asked again next time.
+  let stars = { count: null, at: 0 }
+  let starring = null
+  async function repoStars() {
+    const repo = repoSlug()
+    if (repo === null) return null
+    if (Date.now() - stars.at < STARS_TTL_MS) return stars.count
+    starring ??= fetchJson(`https://api.github.com/repos/${repo}`, { 'user-agent': `${PKG.name}/${PKG.version}` })
+      .then((info) => { if (Number.isInteger(info?.stargazers_count)) stars = { count: info.stargazers_count, at: Date.now() } })
+      .catch(error => rt.warn('ds-bot: star count failed: %s', error?.message ?? error))
+      .finally(() => { starring = null })
+    await starring
+    return stars.count
+  }
 
   async function newestFromRegistry() {
     for (const registry of await registryPlan(config, manager())) {
@@ -206,5 +229,5 @@ export function install(rt) {
     }, 'ds-bot: update check')
   }
 
-  Object.assign(rt, { updateCheck: check, updateStart: start, updateView: view })
+  Object.assign(rt, { updateCheck: check, updateStart: start, updateView: view, repoStars })
 }
