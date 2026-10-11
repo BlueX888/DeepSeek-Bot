@@ -4303,10 +4303,11 @@ function useRowEntrances(replacing) {
     };
   }, []);
 }
-function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, actions }) {
+function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, useSession, actions }) {
   const roster = useRoster((value) => value);
   const running = useSessionStatus((map) => map.get(sessionId)?.running === true);
   const liveKey = useLive((state) => JSON.stringify(state[sessionId] ?? {}));
+  const pendingInput = useSession((snapshot) => Math.max(0, ...(snapshot?.pendingSubmissions ?? []).filter((sub) => sub.placement !== "queued").map((sub) => sub.time)));
   const bot = roster.byId[sessionId];
   const room2 = roster.roomsById[sessionId];
   const entries2 = (0, import_react7.useMemo)(() => Object.values(JSON.parse(liveKey)), [liveKey]);
@@ -4315,7 +4316,10 @@ function ActivityIndicator({ sessionId, useRoster, useSessionStatus, useLive, ac
   const relaying = tools.some((entry) => entry.relay);
   const visible = running && !streaming && !relaying && (bot !== void 0 || room2 !== void 0);
   const tool = tools.at(-1);
-  const want = !visible ? null : tool ? { key: tool.label ? `tool:${tool.label}` : "working", label: tool.label, pool: PHRASES.working, state: tool.state ?? "working" } : { key: "thinking", pool: PHRASES.thinking, state: "thinking" };
+  const inputRef = (0, import_react7.useRef)(0);
+  const inputAt = Math.max(inputRef.current, pendingInput);
+  inputRef.current = inputAt;
+  const want = !visible ? null : inputAt > (tool?.at ?? 0) ? { key: `input:${inputAt}`, pool: PHRASES.thinking, state: "thinking" } : tool ? { key: tool.label ? `tool:${tool.label}` : "working", label: tool.label, pool: PHRASES.working, state: tool.state ?? "working" } : { key: "thinking", pool: PHRASES.thinking, state: "thinking" };
   const [shown, setShown] = (0, import_react7.useState)(null);
   const wantKey = want?.key ?? null;
   const markState = (0, import_react7.useRef)("thinking");
@@ -5176,7 +5180,7 @@ function MemoryNotice({ shown }) {
     (0, import_react9.createElement)("span", { className: "bt-pill-mem-in", ref: inner }, (0, import_react9.createElement)("span", { className: "bt-pill-mem-ico" }, (0, import_react9.createElement)(MemoryIcon)), label)
   );
 }
-function HeaderPill({ sessionId, useRoster, useSessions, useSessionStatus, useActivity, useMemoryNews, useTurnClock, useUi, useLive, actions }) {
+function HeaderPill({ sessionId, useRoster, useSessions, useSessionStatus, useSession, useActivity, useMemoryNews, useTurnClock, useUi, useLive, actions }) {
   const roster = useRoster((value) => value);
   const title = useSessions((list) => list.byId[sessionId]?.displayTitle ?? list.byId[sessionId]?.title ?? "");
   const firstTurns = useSessions((list) => {
@@ -5240,7 +5244,7 @@ function HeaderPill({ sessionId, useRoster, useSessions, useSessionStatus, useAc
     ),
     (0, import_react9.createElement)("span", { className: "bt-sr", role: "status" }, memoryNotice ? t("Memory updated") : ""),
     (0, import_react9.createElement)(NewMessagePills, { key: sessionId, sessionId, useSessions, useUi, useTurnClock }),
-    (0, import_react9.createElement)(ActivityIndicator, { key: `activity:${sessionId}`, sessionId, useRoster, useSessionStatus, useLive, actions })
+    (0, import_react9.createElement)(ActivityIndicator, { key: `activity:${sessionId}`, sessionId, useRoster, useSessionStatus, useSession, useLive, actions })
   );
 }
 function useTranscriptView() {
