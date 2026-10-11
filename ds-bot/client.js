@@ -1855,14 +1855,18 @@ button.bt-lead{border:0;background:none;padding:0;cursor:pointer}
 .bt-q-opt{position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;min-width:0;box-sizing:border-box;margin:0;border:0;border-radius:12px;background:transparent;padding:8px;font:inherit;color:var(--bt-ink);text-align:start;cursor:pointer;transition:background-color .12s ease}
 .bt-q:not(.bt-q-raised)>.bt-q-head:has(+.bt-q-list){padding-bottom:12px;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}
 .bt-q:not(.bt-q-raised)>.bt-q-head+.bt-q-list{margin-top:-6px}
-.bt-q-opt+.bt-q-opt::before{content:"";position:absolute;left:44px;right:8px;top:-1px;height:1px;background:color-mix(in srgb,var(--bt-ink) 5%,transparent);transition:opacity .12s ease;pointer-events:none}
+.bt-q-opt+.bt-q-opt::before{content:"";position:absolute;left:calc(var(--bt-key,24px) + 20px);right:8px;top:-1px;height:1px;background:color-mix(in srgb,var(--bt-ink) 5%,transparent);transition:opacity .12s ease;pointer-events:none}
 button.bt-q-opt:hover::before,button.bt-q-opt:hover+.bt-q-opt::before,.bt-q-opt[aria-pressed=true]::before,.bt-q-opt[aria-pressed=true]+.bt-q-opt::before{opacity:0}
 .bt-q-raised .bt-q-opt::before{display:none}
 button.bt-q-opt:hover{background:var(--bt-hover)}
 button.bt-q-opt:active{background:var(--bt-active)}
 .bt-q-opt[aria-pressed=true]{background:var(--bt-active)}
-.bt-key{flex:none;box-sizing:border-box;width:24px;height:24px;border-radius:8px;background:var(--bt-hover);color:var(--bt-ink-2);font-size:12px;line-height:24px;font-weight:500;text-align:center;font-variant-numeric:tabular-nums;transition:background-color .12s ease,color .12s ease}
+.bt-key{flex:none;box-sizing:border-box;width:var(--bt-key,24px);height:var(--bt-key,24px);border-radius:8px;background:var(--bt-hover);color:var(--bt-ink-2);font-size:12px;line-height:var(--bt-key,24px);font-weight:500;text-align:center;font-variant-numeric:tabular-nums;transition:background-color .12s ease,color .12s ease}
 .bt-q-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px;padding-top:2px}
+/* With a description the key spans the two text lines less 2px above and below. */
+.bt-q-opt:has(.bt-q-desc){--bt-key:34px}
+.bt-q-opt:has(.bt-q-desc) .bt-key{margin-top:2px;border-radius:10px;font-size:13px}
+.bt-q-opt:has(.bt-q-desc) .bt-q-body{padding-top:0}
 .bt-q-label{font-size:14px;line-height:20px;font-weight:500;white-space:normal;overflow-wrap:anywhere}
 .bt-q-desc{font-size:12px;line-height:17px;color:var(--bt-ink-2);overflow-wrap:anywhere}
 .bt-q-check{flex:none;display:inline-flex;align-items:center;color:var(--bt-ink-2);animation:bt-check-pop ${SPRING_POP.duration}ms ${SPRING_POP.easing} backwards}
