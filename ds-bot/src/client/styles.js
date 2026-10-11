@@ -205,7 +205,9 @@ button.bt-lead{border:0;background:none;padding:0;cursor:pointer}
 .bt-q-x:focus-visible,.bt-q-opt:focus-visible{outline:2px solid var(--bt-accent);outline-offset:-2px}
 .bt-q-list{display:flex;flex-direction:column;gap:1px;min-width:0;box-sizing:border-box;margin:0 -8px}
 .bt-q-opt{position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;min-width:0;box-sizing:border-box;margin:0;border:0;border-radius:12px;background:transparent;padding:8px;font:inherit;color:var(--bt-ink);text-align:start;cursor:pointer;transition:background-color .12s ease}
-.bt-q-opt+.bt-q-opt::before{content:"";position:absolute;left:8px;right:8px;top:-1px;height:1px;background:color-mix(in srgb,var(--bt-ink) 7%,transparent);transition:opacity .12s ease;pointer-events:none}
+.bt-q:not(.bt-q-raised)>.bt-q-head:has(+.bt-q-list){padding-bottom:12px;border-bottom:1px solid color-mix(in srgb,var(--bt-ink) 8%,transparent)}
+.bt-q:not(.bt-q-raised)>.bt-q-head+.bt-q-list{margin-top:-6px}
+.bt-q-opt+.bt-q-opt::before{content:"";position:absolute;left:44px;right:8px;top:-1px;height:1px;background:color-mix(in srgb,var(--bt-ink) 5%,transparent);transition:opacity .12s ease;pointer-events:none}
 button.bt-q-opt:hover::before,button.bt-q-opt:hover+.bt-q-opt::before,.bt-q-opt[aria-pressed=true]::before,.bt-q-opt[aria-pressed=true]+.bt-q-opt::before{opacity:0}
 .bt-q-raised .bt-q-opt::before{display:none}
 button.bt-q-opt:hover{background:var(--bt-hover)}
