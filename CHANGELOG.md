@@ -8,6 +8,11 @@ All notable changes to DS Bot are listed here. The format follows [Keep a Change
 
 - Every Bot can change its own name, role, color, model and instructions; only a Main Bot changes other Bots.
 
+### Fixed
+
+- A long conversation's fresh part keeps the Bot's model and thinking level. Before, the new part fell back to the default model.
+- A provider adapter that cannot measure tokens no longer fails every turn. The context size is estimated instead, with one warning in the log.
+
 ## [0.1.2] - 2026-10-11
 
 ### Added

@@ -18,7 +18,7 @@ import { randomUUID } from 'node:crypto'
 import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { HISTORY_TIMEOUT_MS, REPLY_KIND, SOURCE_KIND } from './constants.js'
 import { CHECKPOINT_PROMPT, STEWARD_SYSTEM, checkpointCount, checkpointTail, checkpointTailNote, checkpointText, linesFor, parseDecision, stewardRequest } from './steward.js'
-import { clip, createClock, escapeRegExp, estimateTokens, textOf } from './text.js'
+import { clip, createClock, escapeRegExp, estimateTokens, splitRef, textOf } from './text.js'
 
 // An ask_user card as the user saw it. The user's reply is often just an option label,
 // which means nothing without the card. Arguments the tool would refuse (no question,
@@ -142,7 +142,19 @@ export function install(rt) {
   const STEWARD_TIMEOUT_MS = 120_000
   const STEWARD_LINES = 40
 
-  const tokensOf = session => ctx.get('tokenMeter')?.measure(session).totalTokens
+  // A broken provider adapter must not crash every turn; one warning is enough.
+  let measureWarned = false
+  const tokensOf = (session) => {
+    try {
+      return ctx.get('tokenMeter')?.measure(session).totalTokens
+    } catch (error) {
+      if (!measureWarned) {
+        measureWarned = true
+        rt.warn('ds-bot: token measure failed; context sizes are estimated without it: %s', error)
+      }
+      return undefined
+    }
+  }
   const clock = createClock(config.timeZone)
 
   // Lines for the model the Session last routed to; undefined while it has not
@@ -705,9 +717,10 @@ export function install(rt) {
     if (signal.aborted) throw signal.reason
     const freshId = await rt.createSession(room ? `${bot.name} · ${room.name}` : bot.name)
     const route = session.requestHeader()?.config
-    const model = route?.provider && route?.model ? `${route.provider}/${route.model}` : await rt.desiredModel(bot)
-    if (model !== undefined) {
-      await rt.selectSessionModel(freshId, model)
+    const ref = route?.provider && route?.model ? `${route.provider}/${route.model}` : await rt.desiredModel(bot)
+    if (ref !== undefined) {
+      const effort = route?.reasoningEffort ?? await rt.desiredEffort(bot, ref)
+      await rt.selectSessionModel(freshId, { ...splitRef(ref), ...(effort === undefined ? {} : { reasoningEffort: effort }) })
         .catch(error => rt.warn('ds-bot: model for the fresh part of %s not applied: %s', bot.name, error))
     }
     await rt.applyPermission(bot, freshId)
