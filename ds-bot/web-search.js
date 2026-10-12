@@ -551,7 +551,11 @@ export function createAutoSearchProvider(deps, config = {}) {
 
   async function attempt(candidate, route, credential, request, signal, budget, known) {
     const call = candidate.request({ query: request.query, maxResults: request.maxResults })
-    const timeout = AbortSignal.timeout(budget)
+    const controller = new AbortController()
+    // AbortSignal.timeout's timer is unref'd, so it never fires in an otherwise idle process; a
+    // ref'd timer bounds the wait on its own, cleared once the request has settled.
+    const timer = setTimeout(() => controller.abort(), budget)
+    const timeout = controller.signal
     let response
     let text
     try {
@@ -567,6 +571,8 @@ export function createAutoSearchProvider(deps, config = {}) {
     } catch (error) {
       if (signal?.aborted) throw aborted(signal)
       return { reason: timeout.aborted ? `timed out after ${seconds(budget)}` : `request failed: ${reasonOf(error)}` }
+    } finally {
+      clearTimeout(timer)
     }
     if (!response.ok) {
       const detail = errorDetail(text)
