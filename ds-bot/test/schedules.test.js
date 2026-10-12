@@ -44,10 +44,30 @@ function scheduleService() {
   }
 }
 
-function setup(services = {}) {
+// The workspace registry as DSH runs it: a Session with armed reminders reports
+// activity, so a plain archive is refused, while stopActivity archives it and stops
+// the tasks (the schedule service's workspace/session-stop listener drops the rows).
+function workspaceRegistry(schedule) {
+  const archived = new Set()
+  return {
+    archived,
+    async archiveSession(sessionId, options = {}) {
+      const active = [...schedule.tasks.entries()].filter(([, task]) => task.sessionId === sessionId)
+      if (options.stopActivity === true) {
+        for (const [id] of active) schedule.tasks.delete(id)
+      } else if (active.length > 0) {
+        throw Object.assign(new Error(`Session ${sessionId} still has tasks armed`), { name: 'WorkspaceActiveSessionError' })
+      }
+      archived.add(sessionId)
+    },
+  }
+}
+
+function setup(services = {}, extra = {}) {
   const home = mkdtempSync(join(tmpdir(), 'dsb-schedules-'))
   writeFileSync(join(home, 'state.json'), JSON.stringify(TEAM))
   const ctx = fakeContext({ services })
+  Object.assign(ctx, extra)
   const register = ctx.connection.fetch.register
   ctx.connection.fetch.register = (route) => { ctx.route = route; return register(route) }
   apply(ctx, { home })
@@ -112,6 +132,22 @@ test('a group chat task lives on the group Session and lists under the group', a
   assert.equal([...schedule.tasks.values()][0].sessionId, 'g1')
   assert.deepEqual(made.value.tasks.map(task => [task.title, task.roomId, task.botId]), [['Standup', 'g1', undefined]])
   assert.match((await call('schedule-create', { target: 'nobody', title: 'x', prompt: 'y', when: { kind: 'every', minutes: 5 } })).error.message, /No such Bot or group chat/)
+})
+
+test('deleting a Bot or group chat takes its tasks with it', async (t) => {
+  const schedule = scheduleService()
+  const registry = workspaceRegistry(schedule)
+  const { ctx, home, call } = setup({ schedule }, { workspaceRegistry: registry })
+  t.after(() => { ctx.dispose(); rmSync(home, { recursive: true, force: true }) })
+  const briefing = await call('schedule-create', { target: 'w1', title: 'Briefing', prompt: 'Sum up the day', when: { kind: 'daily', time: '09:00', timeZone: 'UTC' } })
+  assert.equal(briefing.ok, true, JSON.stringify(briefing))
+  const standup = await call('schedule-create', { target: 'g1', title: 'Standup', prompt: 'Where are we?', when: { kind: 'daily', time: '10:00', timeZone: 'UTC' } })
+  assert.equal(standup.ok, true, JSON.stringify(standup))
+
+  assert.equal((await call('delete-bot', { id: 'w1' })).ok, true)
+  assert.equal((await call('delete-room', { id: 'g1' })).ok, true)
+  assert.deepEqual([...schedule.tasks.values()], [])
+  assert.deepEqual([...registry.archived].sort(), ['g1', 'w2'])
 })
 
 test('a due reminder reaches a group as its prompts', () => {

@@ -329,7 +329,9 @@ export function install(rt) {
     delete state.rooms[id]
     rt.roomInbox.delete(id)
     await rt.save()
-    await ctx.workspaceRegistry.archiveSession(id).catch(() => {})
+    // The group's armed reminders are its Session's activity, so the archive stops
+    // them: DSH's session-stop listener deletes their task rows.
+    await ctx.workspaceRegistry.archiveSession(id, { stopActivity: true }).catch(() => {})
   }
 
   // The first Main Bot is the sidebar tile. `replace` gives a Main Bot's place to
@@ -388,7 +390,9 @@ export function install(rt) {
     await rt.forgetBotSecrets(id)
     await archived
     await rt.save()
-    await ctx.workspaceRegistry.archiveSession(current).catch(() => {})
+    // The Bot's armed reminders are its Session's activity, so the archive stops
+    // them: DSH's session-stop listener deletes their task rows.
+    await ctx.workspaceRegistry.archiveSession(current, { stopActivity: true }).catch(() => {})
   }
 
   async function bootstrap() {
