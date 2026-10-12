@@ -159,7 +159,9 @@ function decide(body) {
     // "长任务 N [K]": N steps in one turn, each adding about K thousand characters (default 4).
     const openerAt = messages.findLastIndex(m => m.role === 'user' && !isResults(m) && /^长任务\s*\d+/.test(textOf(m.content)))
     if (openerAt !== -1 && used?.name === 'list_bots') {
-      const [, steps, size = 4] = /^长任务\s*(\d+)(?:\s+(\d+))?/.exec(textOf(messages[openerAt].content)).map(Number)
+      const task = /^长任务\s*(\d+)(?:\s+(\d+))?/.exec(textOf(messages[openerAt].content))
+      const steps = Number(task[1])
+      const size = Number(task[2] ?? 4)
       const done = messages.slice(openerAt + 1).filter(isResults).length
       if (done < steps) return [text(filler(size * 1000, `步骤${done + 1}`)), tool('list_bots', {})]
       return [text(`长任务做完了，一共 ${done} 步。`)]
