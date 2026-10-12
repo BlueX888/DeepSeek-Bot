@@ -73,8 +73,26 @@ const TEAM = {
   questions: {},
 }
 
-function start(t, home) {
+function start(t, home, sessions = false) {
   const ctx = fakeContext()
+  // With `sessions`, the stand-in services a create-bot runs through (see legacy-state.test.js).
+  if (sessions) {
+    let made = 0
+    Object.assign(ctx, {
+      workspaceRegistry: {
+        resolveByPath: async () => undefined,
+        create: async path => ({ id: 'w1', path }),
+        archiveSession: async () => {},
+      },
+      sessionController: {
+        create: async () => ({ sessionId: `s${++made}` }),
+        resolveAgent: async sessionId => ({ agent: { session: { id: sessionId }, followup() {} } }),
+        selectModel: async () => {},
+      },
+      sessionTitle: { rename: async () => {} },
+      sessions: { flush: async () => {} },
+    })
+  }
   let route
   const register = ctx.connection.fetch.register
   ctx.connection.fetch.register = (options) => {
@@ -116,6 +134,34 @@ test('while another dsh holds the team, the channel reads it, refuses changes, t
   assert.equal(saved.revision, 9)
   assert.equal(JSON.parse(readFileSync(join(home, 'state.lock'), 'utf8')).pid, process.pid)
   assert.equal((await call('state', {})).value.readOnly, null)
+})
+
+test('a host that loses its lock to another dsh refuses changes instead of making a phantom Bot', async (t) => {
+  const home = tempHome(t)
+  writeFileSync(join(home, 'state.json'), JSON.stringify(TEAM))
+  const call = start(t, home, true)
+  // This host loaded first, holds the lock and may save.
+  assert.equal((await call('state', {})).value.readOnly, null)
+
+  // Another live dsh replaces the lock token: this host has lost the lock (home-lock.js).
+  writeFileSync(join(home, 'state.lock'), JSON.stringify({ pid: process.ppid, host: hostname(), token: 'other' }))
+
+  // The next request sees the other host, and changes are refused before they run.
+  const view = (await call('state', {})).value
+  assert.match(view.readOnly, new RegExp(`open in another dsh \\(Web or Desktop, pid ${process.ppid} on `))
+  const made = await call('create-bot', { name: 'Phantom' })
+  assert.equal(made.ok, false)
+  assert.equal(made.error.code, 'bot/read-only')
+  // Nothing half-made lingers in the window or in the file.
+  assert.deepEqual((await call('state', {})).value.bots.map(bot => bot.name), ['Chief'])
+  assert.deepEqual(Object.keys(JSON.parse(readFileSync(join(home, 'state.json'), 'utf8')).bots), ['m1'])
+
+  // The other host saves a change: this one follows the file, and takes the team back once it closes.
+  writeFileSync(join(home, 'state.json'), JSON.stringify({ ...TEAM, revision: 8, prefs: { theme: 'light' } }))
+  assert.equal((await call('state', {})).value.revision, 8)
+  rmSync(join(home, 'state.lock'))
+  assert.equal((await call('set-prefs', { theme: 'dark' })).ok, true)
+  assert.equal(JSON.parse(readFileSync(join(home, 'state.json'), 'utf8')).prefs.theme, 'dark')
 })
 
 test('a reading host follows the other host\'s keys, never writes them, and keeps them after taking over', async (t) => {

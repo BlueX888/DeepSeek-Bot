@@ -137,12 +137,18 @@ export function install(rt) {
   // A reading host follows the file and takes over once the other host has gone.
   const refresh = async () => {
     await load()
-    if (holder === undefined) return
+    // The token decides ownership (home-lock.js): a host that held the lock can find
+    // another one in its place, so it re-claims before it skips the follow.
+    if (holder === undefined && lock.owns()) return
+    const held = holder === undefined
     claimLock()
     if (holder === undefined) {
-      warn('ds-bot: the other dsh has closed; this one now saves the Bot team')
-      warnedReadOnly = false
-      adopt(await readFileState())
+      // A reader takes the team over; a holder that re-took its deleted lock keeps its own.
+      if (!held) {
+        warn('ds-bot: the other dsh has closed; this one now saves the Bot team')
+        warnedReadOnly = false
+        adopt(await readFileState())
+      }
       return
     }
     if (stamp() !== seen) adopt(await readFileState())
